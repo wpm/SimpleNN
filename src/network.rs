@@ -116,6 +116,17 @@ impl Network {
             .collect()
     }
 
+    /// Returns the fraction of examples in `inputs` whose prediction matches its label.
+    pub fn accuracy(&self, inputs: &Array2<f32>, labels: &[usize]) -> f32 {
+        let correct = self
+            .predict(inputs)
+            .iter()
+            .zip(labels)
+            .filter(|(predicted, label)| predicted == label)
+            .count();
+        correct as f32 / labels.len() as f32
+    }
+
     /// Writes the network to `path` as JSON.
     pub fn save(&self, path: &Path) -> io::Result<()> {
         std::fs::write(path, serde_json::to_string(self)?)
@@ -215,6 +226,22 @@ mod tests {
         };
         let inputs = array![[0.1, 0.9, 0.3], [2.0, -1.0, 0.5], [-3.0, -2.0, -1.0]];
         assert_eq!(network.predict(&inputs), vec![1, 0, 2]);
+    }
+
+    #[test]
+    fn accuracy_is_the_fraction_of_correct_predictions() {
+        let network = Network {
+            weights: vec![Array2::eye(3)],
+            biases: vec![Array1::zeros(3)],
+        };
+        // Predictions are 1, 0, 2 and 2; three of the four labels match.
+        let inputs = array![
+            [0.1, 0.9, 0.3],
+            [2.0, -1.0, 0.5],
+            [-3.0, -2.0, -1.0],
+            [0.0, 0.0, 1.0]
+        ];
+        assert_eq!(network.accuracy(&inputs, &[1, 0, 2, 0]), 0.75);
     }
 
     #[test]
