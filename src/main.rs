@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use simplenn::digit::load_digit_image;
 use simplenn::mnist::Dataset;
 use simplenn::network::Network;
 use simplenn::train::{TrainConfig, train};
@@ -42,6 +43,14 @@ enum Command {
         /// A model written by `train`.
         #[arg(long)]
         model: PathBuf,
+    },
+    /// Prints the digit a saved model predicts for an image.
+    Predict {
+        /// A model written by `train`.
+        #[arg(long)]
+        model: PathBuf,
+        /// An image of a single digit.
+        image: PathBuf,
     },
 }
 
@@ -88,6 +97,13 @@ fn run(command: Command) -> Result<(), String> {
             let network = Network::load(&model).map_err(|e| describe(&model, e))?;
             let accuracy = network.accuracy(&dataset.inputs, &dataset.labels);
             println!("accuracy: {accuracy:.4}");
+            Ok(())
+        }
+        Command::Predict { model, image } => {
+            let network = Network::load(&model).map_err(|e| describe(&model, e))?;
+            let inputs =
+                load_digit_image(&image).map_err(|e| format!("{}: {e}", image.display()))?;
+            println!("{}", network.predict(&inputs)[0]);
             Ok(())
         }
     }
