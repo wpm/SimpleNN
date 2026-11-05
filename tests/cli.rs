@@ -1,3 +1,5 @@
+use image::{GrayImage, Luma};
+use simplenn::network::Network;
 use std::fs;
 use std::path::Path;
 use std::process::{Command, Output};
@@ -83,4 +85,47 @@ fn missing_data_directory_exits_non_zero_with_a_message() {
     ]);
     assert!(!output.status.success());
     assert!(!output.stderr.is_empty());
+}
+
+#[test]
+fn predict_prints_a_single_digit() {
+    let dir = TempDir::new().unwrap();
+    let model = dir.path().join("model.json");
+    Network::new(&[784, 8, 10], 42).save(&model).unwrap();
+    let image = dir.path().join("digit.png");
+    GrayImage::from_pixel(28, 28, Luma([0]))
+        .save(&image)
+        .unwrap();
+
+    let output = simplenn(&[
+        "predict",
+        "--model",
+        model.to_str().unwrap(),
+        image.to_str().unwrap(),
+    ]);
+    assert!(output.status.success(), "{output:?}");
+    let text = stdout(&output);
+    let digit: usize = text.strip_suffix('\n').unwrap().parse().unwrap();
+    assert!(digit < 10, "{text}");
+}
+
+#[test]
+fn predict_on_a_missing_or_non_image_file_exits_non_zero_with_a_message() {
+    let dir = TempDir::new().unwrap();
+    let model = dir.path().join("model.json");
+    Network::new(&[784, 8, 10], 42).save(&model).unwrap();
+    let text = dir.path().join("digit.png");
+    fs::write(&text, "not an image").unwrap();
+    let missing = dir.path().join("missing.png");
+
+    for image in [text, missing] {
+        let output = simplenn(&[
+            "predict",
+            "--model",
+            model.to_str().unwrap(),
+            image.to_str().unwrap(),
+        ]);
+        assert!(!output.status.success());
+        assert!(!output.stderr.is_empty());
+    }
 }
