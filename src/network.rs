@@ -8,8 +8,8 @@ use std::path::Path;
 /// A fully connected neural network with one weight matrix and one bias vector per layer transition.
 #[derive(Serialize, Deserialize)]
 pub struct Network {
-    weights: Vec<Array2<f32>>,
-    biases: Vec<Array1<f32>>,
+    pub(crate) weights: Vec<Array2<f32>>,
+    pub(crate) biases: Vec<Array1<f32>>,
 }
 
 /// How the loss changes with each parameter: one matrix and one vector per layer transition,
