@@ -1,8 +1,12 @@
 use ndarray::{Array1, Array2, Axis};
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
+use serde::{Deserialize, Serialize};
+use std::io;
+use std::path::Path;
 
 /// A fully connected neural network with one weight matrix and one bias vector per layer transition.
+#[derive(Serialize, Deserialize)]
 pub struct Network {
     weights: Vec<Array2<f32>>,
     biases: Vec<Array1<f32>>,
@@ -110,6 +114,19 @@ impl Network {
                     .unwrap()
             })
             .collect()
+    }
+
+    /// Writes the network to `path` as JSON.
+    pub fn save(&self, path: &Path) -> io::Result<()> {
+        std::fs::write(path, serde_json::to_string(self)?)
+    }
+
+    /// Reads a network written by [`Network::save`].
+    ///
+    /// Malformed JSON gives an [`io::ErrorKind::InvalidData`] error.
+    pub fn load(path: &Path) -> io::Result<Network> {
+        let json = std::fs::read_to_string(path)?;
+        serde_json::from_str(&json).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
     }
 }
 
@@ -310,5 +327,35 @@ mod tests {
     #[test]
     fn gradients_match_numerical_estimates_with_two_hidden_layers() {
         assert_gradients_match_numerical_estimates(&[3, 5, 4, 3]);
+    }
+
+    /// A path in the system temporary directory, unique to this process and test.
+    fn temp_path(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("simplenn-{}-{name}.json", std::process::id()))
+    }
+
+    #[test]
+    fn saved_and_loaded_network_gives_identical_output() {
+        let network = Network::new(&[4, 5, 3], 3);
+        let path = temp_path("round-trip");
+        network.save(&path).unwrap();
+        let loaded = Network::load(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        let inputs = array![[0.5, -1.0, 2.0, 0.25], [1.0, 1.0, 1.0, 1.0]];
+        assert_eq!(loaded.forward(&inputs), network.forward(&inputs));
+    }
+
+    #[test]
+    fn loading_malformed_json_returns_invalid_data() {
+        let path = temp_path("malformed");
+        std::fs::write(&path, "{ not json").unwrap();
+        let error = Network::load(&path).err().unwrap();
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn loading_missing_file_returns_error() {
+        assert!(Network::load(&temp_path("missing")).is_err());
     }
 }
