@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 ndarray = "0.17.2"
 rand = "0.10.3"
+
+[dev-dependencies]
+tempfile = "3.27.0"
